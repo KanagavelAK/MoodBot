@@ -4,7 +4,7 @@
 
 Built with n8n, Google Gemini and the Spotify Web API. Eight nodes, no manual steps.
 
-<img width="1917" height="862" alt="image" src="https://github.com/user-attachments/assets/85210be0-b4d0-42ee-9a83-2b3618893ec1" />
+<img width="1915" height="927" alt="image" src="https://github.com/user-attachments/assets/ebec9108-5616-40fb-8d86-846442bf8a93" />
 
 
 ---
