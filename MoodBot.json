@@ -1,0 +1,401 @@
+{
+  "name": "MoodBot",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## MoodBot\n\nTelegram message → Gemini reads the mood → Spotify search → real playlist created → link sent back.\n\n**Setup required:** attach your own credentials to the Telegram, Spotify and Header Auth nodes before running.\n\nTelegram needs a public HTTPS webhook address, so a local instance requires a tunnel (ngrok or `n8n start --tunnel`).",
+        "height": 260,
+        "width": 420,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -160
+      ],
+      "id": "aa000000-0000-4000-8000-000000000001",
+      "name": "About"
+    },
+    {
+      "parameters": {
+        "content": "### 1. Catch the message\n\nTelegram pushes each message to us — we never poll.\n\nWe keep `chat.id` as the return address so the reply reaches the right person.",
+        "height": 220,
+        "width": 300,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -280
+      ],
+      "id": "aa000000-0000-4000-8000-000000000002",
+      "name": "Note 1"
+    },
+    {
+      "parameters": {
+        "content": "### 2-3. Read the mood\n\nThe AI does not pick songs — it produces a **search strategy**. Gemini understands the feeling, Spotify finds the music.\n\n`JSON.stringify` escapes the user's text so a typed quote or emoji can't break the request body.\n\nGemini 3.x are thinking models: they burn tokens reasoning before answering, so `max_tokens` must be generous or the JSON is truncated mid-object.",
+        "height": 320,
+        "width": 380,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        224,
+        -380
+      ],
+      "id": "aa000000-0000-4000-8000-000000000003",
+      "name": "Note 2"
+    },
+    {
+      "parameters": {
+        "content": "### 4-5. Find the tracks\n\n`limit=10` is Spotify's current maximum (cut from 50 in Feb 2026).\n\n`market=IN` keeps results playable in India so the link doesn't open onto greyed-out tracks — change to your own market.\n\nWe keep only each track's URI; playlists cannot be built from song names.",
+        "height": 300,
+        "width": 340,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        648,
+        -360
+      ],
+      "id": "aa000000-0000-4000-8000-000000000004",
+      "name": "Note 3"
+    },
+    {
+      "parameters": {
+        "content": "### 6-8. Build and deliver\n\n**Feb 2026 API changes** — most tutorials are still on the old endpoints:\n- `POST /users/{id}/playlists` → `POST /me/playlists`\n- `POST /playlists/{id}/tracks` → `.../items`\n\nThe `/me` version infers the account from the token, which removed a whole node.\n\nNo Telegram parse mode: one `_` or `*` in an AI-written playlist name would make Telegram reject the entire message at the final step.",
+        "height": 360,
+        "width": 400,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        -420
+      ],
+      "id": "aa000000-0000-4000-8000-000000000005",
+      "name": "Note 4"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        48,
+        0
+      ],
+      "id": "1945acc0-6ac0-4f3e-a271-9fb1835b917c",
+      "name": "User message",
+      "notesInFlow": true,
+      "notes": "Fires on any message to the bot",
+      "credentials": {
+        "telegramApi": {
+          "id": "WpLEYphT8vYzbucZ",
+          "name": "Telegram bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gemini-3.6-flash\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a music mood expert. Analyze the user's mood from their message. Return ONLY a valid JSON object - no markdown, no backticks, no text before or after. Use exactly this structure: {\\\"mood_label\\\": \\\"2-3 word mood description\\\", \\\"playlist_name\\\": \\\"one emoji plus a creative playlist name\\\", \\\"search_query\\\": \\\"3-6 word spotify search string matching this mood\\\", \\\"reply\\\": \\\"one empathetic sentence telling the user what music you found for them\\\"}. Never use asterisks or underscores in your output.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.message.text) }}\n    }\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 2000\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        272,
+        0
+      ],
+      "id": "bb6722ca-6b88-49f2-ae38-16fb9536c4e0",
+      "name": "Mood AI",
+      "notesInFlow": true,
+      "notes": "Gemini → mood + search strategy",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mm6iyMR1EEdjNHmU",
+          "name": "AI key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The model's answer arrives as TEXT inside a response wrapper.\n// Pull it out, find the JSON, and turn it into usable data.\n\nconst response = $input.first().json;\n\nif (!response.choices || response.choices.length === 0) {\n  throw new Error(\n    'AI returned no choices. Check the API key and model name. Raw: ' +\n    JSON.stringify(response).slice(0, 400)\n  );\n}\n\nconst raw = response.choices[0].message.content ?? '';\nconst finishReason = response.choices[0].finish_reason;\n\n// Grab everything between the first { and the last } — this survives the\n// model adding a stray sentence or wrapping the answer in code fences.\nconst match = raw.match(/\\{[\\s\\S]*\\}/);\n\nif (!match) {\n  if (finishReason === 'length') {\n    throw new Error(\n      'AI response was cut off before the JSON closed. ' +\n      'Increase max_tokens in the Mood AI node (thinking models need headroom).'\n    );\n  }\n  throw new Error('No JSON found in AI response: ' + raw);\n}\n\nlet aiData;\ntry {\n  aiData = JSON.parse(match[0]);\n} catch (e) {\n  throw new Error('AI returned malformed JSON: ' + match[0].slice(0, 300));\n}\n\nfor (const field of ['mood_label', 'playlist_name', 'search_query', 'reply']) {\n  if (!aiData[field]) {\n    throw new Error('AI response is missing the field: ' + field);\n  }\n}\n\n// Reach back to node 1 for the return address.\nconst chatId = $('User message').first().json.message.chat.id;\n\nreturn [{\n  json: {\n    mood_label: aiData.mood_label,\n    playlist_name: aiData.playlist_name,\n    search_query: aiData.search_query,\n    reply: aiData.reply,\n    chat_id: chatId\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        0
+      ],
+      "id": "9c88a5d4-9e82-4b87-9e1d-e7e47e6476c9",
+      "name": "Parse AI",
+      "notesInFlow": true,
+      "notes": "Text → structured data"
+    },
+    {
+      "parameters": {
+        "url": "https://api.spotify.com/v1/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "spotifyOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.search_query }}"
+            },
+            {
+              "name": "type",
+              "value": "track"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            },
+            {
+              "name": "market",
+              "value": "IN"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        688,
+        0
+      ],
+      "id": "a4f1b1bb-b66d-4bab-b8bd-97a198d40a28",
+      "name": "Spotify Search",
+      "notesInFlow": true,
+      "notes": "10 tracks, market IN",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "spotifyOAuth2Api": {
+          "id": "UfVOadmY7xPVhvIe",
+          "name": "Spotify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Spotify's search response is huge — album art in three sizes, artist\n// objects, release dates. We need one thing per track: its URI.\n// Playlists cannot be built from song names; URIs are exact.\n\nconst tracks = $input.first().json.tracks?.items ?? [];\n\nif (tracks.length === 0) {\n  throw new Error(\n    'Spotify returned no tracks for: ' + $('Parse AI').first().json.search_query\n  );\n}\n\nconst uris = tracks\n  .filter(t => t && typeof t.uri === 'string')\n  .slice(0, 10)\n  .map(t => t.uri);\n\nif (uris.length === 0) {\n  throw new Error('Spotify returned results but none had a usable track URI');\n}\n\n// Carry the rest forward — the Spotify response doesn't contain any of it.\nreturn [{\n  json: {\n    track_uris: uris,\n    playlist_name: $('Parse AI').first().json.playlist_name,\n    reply: $('Parse AI').first().json.reply,\n    chat_id: $('Parse AI').first().json.chat_id\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        0
+      ],
+      "id": "a56695e5-8b60-4066-af3b-81ece85a6bf5",
+      "name": "Extract URIs",
+      "notesInFlow": true,
+      "notes": "Keep the track URIs only"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.spotify.com/v1/me/playlists",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "spotifyOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": {{ JSON.stringify($('Extract URIs').first().json.playlist_name) }},\n  \"public\": true,\n  \"description\": \"Auto-generated by MoodBot\"\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "6a065fcc-c896-485d-ab79-d34eb60a5a58",
+      "name": "Create Playlist",
+      "notesInFlow": true,
+      "notes": "POST /me/playlists",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "spotifyOAuth2Api": {
+          "id": "UfVOadmY7xPVhvIe",
+          "name": "Spotify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.spotify.com/v1/playlists/{{ $json.id }}/items",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "spotifyOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"uris\": {{ JSON.stringify($('Extract URIs').first().json.track_uris) }}\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1312,
+        0
+      ],
+      "id": "3be6fd63-752a-4421-a341-9ffdaf558c46",
+      "name": "Add Items",
+      "notesInFlow": true,
+      "notes": "/items, not /tracks",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "spotifyOAuth2Api": {
+          "id": "UfVOadmY7xPVhvIe",
+          "name": "Spotify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract URIs').first().json.chat_id }}",
+        "text": "={{ $('Extract URIs').first().json.reply }}\n\n🎵 Your playlist: {{ $('Create Playlist').first().json.external_urls.spotify }}\n\n{{ $('Extract URIs').first().json.track_uris.length }} tracks loaded — enjoy 🎧",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1504,
+        0
+      ],
+      "id": "f84f1b86-3027-4e91-8098-8bb5544583ab",
+      "name": "Send reply",
+      "notesInFlow": true,
+      "notes": "Plain text — no parse mode",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "telegramApi": {
+          "id": "WpLEYphT8vYzbucZ",
+          "name": "Telegram bot"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "User message": {
+      "main": [
+        [
+          {
+            "node": "Mood AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mood AI": {
+      "main": [
+        [
+          {
+            "node": "Parse AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI": {
+      "main": [
+        [
+          {
+            "node": "Spotify Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spotify Search": {
+      "main": [
+        [
+          {
+            "node": "Extract URIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract URIs": {
+      "main": [
+        [
+          {
+            "node": "Create Playlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Playlist": {
+      "main": [
+        [
+          {
+            "node": "Add Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Items": {
+      "main": [
+        [
+          {
+            "node": "Send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
